@@ -38,15 +38,18 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         image_width=int(viewpoint_camera.image_width),
         tanfovx=tanfovx,
         tanfovy=tanfovy,
-        bg=bg_color,
+        bg=bg_color.to(pc.get_xyz.dtype),
         scale_modifier=scaling_modifier,
-        viewmatrix=viewpoint_camera.world_view_transform,
-        projmatrix=viewpoint_camera.full_proj_transform,
+        viewmatrix=viewpoint_camera.world_view_transform.to(pc.get_xyz.dtype),
+        projmatrix=viewpoint_camera.full_proj_transform.to(pc.get_xyz.dtype),
         sh_degree=pc.active_sh_degree,
-        campos=viewpoint_camera.camera_center,
+        campos=viewpoint_camera.camera_center.to(pc.get_xyz.dtype),
         prefiltered=False,
         debug=pipe.debug
     )
+
+    original_image_dtype = viewpoint_camera.original_image.dtype
+    viewpoint_camera.original_image = viewpoint_camera.original_image.to(pc.get_xyz.dtype)
 
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
 
@@ -82,6 +85,15 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         colors_precomp = override_color
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen). 
+    means3D = means3D.to(pc.get_xyz.dtype) if means3D is not None else None
+    means2D = means2D.to(pc.get_xyz.dtype) if means2D is not None else None
+    shs = shs.to(pc.get_xyz.dtype) if shs is not None else None
+    colors_precomp = colors_precomp.to(pc.get_xyz.dtype) if colors_precomp is not None else None
+    scales = scales.to(pc.get_xyz.dtype) if scales is not None else None
+    rotations = rotations.to(pc.get_xyz.dtype) if rotations is not None else None
+    cov3D_precomp = cov3D_precomp.to(pc.get_xyz.dtype) if cov3D_precomp is not None else None
+    opacity = opacity.to(pc.get_xyz.dtype) if opacity is not None else None
+
     rendered_image, radii = rasterizer(
         means3D = means3D,
         means2D = means2D,
@@ -91,6 +103,9 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         scales = scales,
         rotations = rotations,
         cov3D_precomp = cov3D_precomp)
+
+    # TODO: this line should be uncommented when the fix in loss is done.
+    # viewpoint_camera.original_image = viewpoint_camera.original_image.to(original_image_dtype)
 
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
