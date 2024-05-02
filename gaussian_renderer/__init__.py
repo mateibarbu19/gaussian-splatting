@@ -105,7 +105,8 @@ def render(viewpoint_camera, pc : GaussianModel, pipe, bg_color : torch.Tensor, 
         cov3D_precomp = cov3D_precomp)
 
     # TODO: this line should be uncommented when the fix in loss is done.
-    # viewpoint_camera.original_image = viewpoint_camera.original_image.to(original_image_dtype)
+    viewpoint_camera.original_image = viewpoint_camera.original_image.to(original_image_dtype)
+    rendered_image = rendered_image.to(original_image_dtype)
 
     # Those Gaussians that were frustum culled or had a radius of 0 were not visible.
     # They will be excluded from value updates used in the splitting criteria.
